@@ -22,7 +22,7 @@ static void mod_main(void)
 	fs = (struct file_system_type *)(*(unsigned long *)sym_addr);
 	while (fs != NULL)
 	{
-		printk("fs: %s \t\tfs_flags: %d\n", fs->name, fs->fs_flags);
+		printk("fs: %s \t\tfs_flags: 0x%08X\n", fs->name, fs->fs_flags);
 		fs = fs->next;
         sum++;
 	}
