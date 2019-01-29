@@ -8,6 +8,17 @@
 #include <linux/list.h>
 #include <linux/dcache.h>
 
+/*
+ * Build commands:
+ *   make clean
+ *   make o=fs
+ *
+ * Insert module and check print-out:
+ *   sudo insmod fs.ko
+ *   sudo rmmod fs
+ *   cat /var/log/syslog
+ */
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Weixiang");
 MODULE_DESCRIPTION("Check Filesystem Module");
