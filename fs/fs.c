@@ -123,11 +123,50 @@ static int __init mod_init(void)
 					pr_debug("        fs_supers[%d]->s_inodes is NULL\n", sb_cnt);
 				} else {
 					int inode_cnt = 0;
-					struct list_head *inode;
-					list_for_each(inode, &sb_ptr->s_inodes)
-						inode_cnt++;
+					int inode_idx = 0;
+					struct list_head *inode_pos;
+					struct inode *inode_ptr;
 
+					/* count total inode */
+					list_for_each(inode_pos, &sb_ptr->s_inodes)
+						inode_cnt++;
 					pr_debug("        fs_supers[%d]->s_inodes has %d in total\n", sb_cnt, inode_cnt);
+
+					/* loop each inode */
+					list_for_each(inode_pos, &sb_ptr->s_inodes) {
+						inode_ptr = list_entry(inode_pos, struct inode, i_sb_list);
+
+						/* print first 20 inodes only */
+						if (inode_idx < 20) {
+							char *imode_str;
+							pr_debug("            fs_supers[%d]->s_inodes[%d]:", sb_cnt, inode_idx);
+
+							/* i_mode */
+							if (S_ISLNK(inode_ptr->i_mode))
+								imode_str = "S_IFLNK";
+							if (S_ISREG(inode_ptr->i_mode))
+								imode_str = "S_IFREG";
+							if (S_ISDIR(inode_ptr->i_mode))
+								imode_str = "S_IFDIR";
+							if (S_ISCHR(inode_ptr->i_mode))
+								imode_str = "S_IFCHR";
+							if (S_ISBLK(inode_ptr->i_mode))
+								imode_str = "S_IFBLK";
+							if (S_ISFIFO(inode_ptr->i_mode))
+								imode_str = "S_IFFIFO";
+							if (S_ISSOCK(inode_ptr->i_mode))
+								imode_str = "S_IFSOCK";
+							pr_debug("                i_mode: %hu => %s\n", inode_ptr->i_mode & S_IFMT, imode_str);
+
+							/* i_uid, i_gid */
+							pr_debug("                i_uid: %d, i_gid: %d\n", inode_ptr->i_uid, inode_ptr->i_gid);
+
+							/* i_flags */
+							pr_debug("                i_flags: %u\n", inode_ptr->i_flags);
+						}
+
+						inode_idx++;
+					}
 				}
 
 				/* next loop */
