@@ -24,6 +24,7 @@ MODULE_AUTHOR("Chen Weixiang");
 MODULE_DESCRIPTION("Check Filesystem Module");
 
 #define PREFIXBUFFLEN 50
+char prefixbuff[PREFIXBUFFLEN];
 
 static char *fsname = NULL;
 module_param(fsname, charp, 0444);
@@ -33,34 +34,147 @@ static int inodecnt = 5;
 module_param(inodecnt, int, 0444);
 MODULE_PARM_DESC(inodecnt, " show first elements in list fs_supers[]->s_inodes. Default: 5");
 
+/*
+ * Function Decleration
+ */
+
+char *check_dentry_hashtable(struct hlist_bl_node *p_dhash);
+void print_inode(struct inode *pinode, char *prefix);
+void print_dentry(struct dentry *pdentry, char *prefix);
+
+
+/*
+ * Function Definition
+ */
+
+void print_inode(struct inode *pinode, char *prefix)
+{
+	char *imode_str;
+
+	/* i_mode */
+	if (S_ISLNK(pinode->i_mode))
+		imode_str = "S_IFLNK";
+	if (S_ISREG(pinode->i_mode))
+		imode_str = "S_IFREG";
+	if (S_ISDIR(pinode->i_mode))
+		imode_str = "S_IFDIR";
+	if (S_ISCHR(pinode->i_mode))
+		imode_str = "S_IFCHR";
+	if (S_ISBLK(pinode->i_mode))
+		imode_str = "S_IFBLK";
+	if (S_ISFIFO(pinode->i_mode))
+		imode_str = "S_IFFIFO";
+	if (S_ISSOCK(pinode->i_mode))
+		imode_str = "S_IFSOCK";
+
+	pr_debug("%si_mode: %s", prefix, imode_str);
+
+	/* i_dentry */
+	if (hlist_empty(&pinode->i_dentry)) {
+		pr_debug("%si_dentry: is NULL\n", prefix);
+	} else {
+		int idx = 0;
+		struct dentry *tpos;
+		struct hlist_node *pos;
+		hlist_for_each_entry(tpos, pos, &pinode->i_dentry, d_inode) {
+			pr_debug("%si_dentry[%d]:\n", prefix, idx);
+			print_dentry(tpos, prefix);
+
+			idx++;
+		}
+	}
+}
+
+
+char *check_dentry_hashtable(struct hlist_bl_node *p_dhash)
+{
+	char *sym_name = "dentry_hashtable";
+	unsigned long sym_addr;
+
+	struct hlist_bl_head *ptr;
+	struct hlist_bl_node *pos;
+
+	struct dentry *tpos;
+	int cnt = 0;
+	int idx = 0;
+
+	memset(prefixbuff, '\0', PREFIXBUFFLEN);
+
+	sym_addr = kallsyms_lookup_name(sym_name);
+	ptr = (struct hlist_bl_head *)(*(unsigned long *)sym_addr);
+
+	if (!hlist_bl_empty(ptr)) {
+		hlist_bl_for_each_entry(tpos, pos, ptr, d_hash)
+			cnt++;
+	}
+
+	hlist_bl_for_each_entry(tpos, pos, ptr, d_hash) {
+		if (pos == p_dhash) {
+			sprintf(prefixbuff, "d_hash is %d/%d in dentry_hashtable", idx, cnt);
+			return prefixbuff;
+		}
+
+		idx++;
+	}
+
+	if (idx == cnt)
+		sprintf(prefixbuff, "d_hash is not in dentry_hashtable (has %d elements)", cnt);
+
+	return prefixbuff;
+}
 
 void print_dentry(struct dentry *pdentry, char *prefix)
 {
 	if (pdentry == NULL) {
-		pr_debug("            %s is NULL\n", prefix);
+		pr_debug("%s is NULL\n", prefix);
 		return;
 	}
 
-	pr_debug("            %s->d_iname: %s\n", prefix, pdentry->d_iname);
+	pr_debug("%sd_iname: %s\n", prefix, pdentry->d_iname);
 
 	/* d_name */
 	if (pdentry->d_name.name != NULL)
-		pr_debug("            %s->d_name.name: %s\n", prefix, pdentry->d_name.name);
+		pr_debug("%sd_name.name: %s\n", prefix, pdentry->d_name.name);
+
+	/* d_parent */
+	if (pdentry->d_parent != NULL) {
+		if (pdentry->d_parent->d_iname != NULL)
+			pr_debug("%sd_parent.d_iname: %s\n", prefix, pdentry->d_parent->d_iname);
+
+		if (pdentry->d_parent->d_name.name != NULL)
+			pr_debug("%sd_parent.d_name.name: %s\n", prefix, pdentry->d_parent->d_name.name);
+
+		if (pdentry->d_parent == pdentry)
+			pr_debug("%s    pdentry->d_parent == pdentry\n", prefix);
+		else
+			pr_debug("%s    pdentry->d_parent != pdentry\n", prefix);
+	}
 
 	/* d_flags */
-	pr_debug("            %s->d_flags: %d\n", prefix, pdentry->d_flags);
+	pr_debug("%sd_flags: %d\n", prefix, pdentry->d_flags);
 
 	/* d_seq */
-	pr_debug("            %s->d_seq.sequence: %d\n", prefix, pdentry->d_seq.sequence);
+	pr_debug("%sd_seq.sequence: %d\n", prefix, pdentry->d_seq.sequence);
 
 	/* d_hash */
+	pr_debug("%sd_hash: %s\n", prefix, check_dentry_hashtable(&pdentry->d_hash));
 
 	/* d_time */
-	pr_debug("            %s->d_time: %lu\n", prefix, pdentry->d_time);
+	pr_debug("%sd_time: %lu\n", prefix, pdentry->d_time);
+
+	/* d_inode */
+	if (pdentry->d_inode == NULL) {
+		pr_debug("%sd_inode: is NULL\n", prefix);
+	} else {
+		pr_debug("%sd_inode:\n", prefix);
+		memset(prefixbuff, '\0', PREFIXBUFFLEN);
+		sprintf(prefixbuff, "%s    ", prefix);
+		print_inode(pdentry->d_inode, prefixbuff);
+	}
 
 	/* d_subdirs */
 	if (list_empty(&pdentry->d_subdirs)) {
-		pr_debug("            %s->d_subdirs is NULL\n", prefix);
+		pr_debug("%sd_subdirs is NULL\n", prefix);
 	} else {
 		int subdircnt = 0;
 		int suddiridx = 0;
@@ -69,13 +183,14 @@ void print_dentry(struct dentry *pdentry, char *prefix)
 		struct list_head *subdirs_pos;
 		list_for_each(subdirs_pos, &pdentry->d_subdirs)
 			subdircnt++;
-		pr_debug("            %s->d_subdirs has %d in total\n", prefix, subdircnt);
+		pr_debug("%sd_subdirs has %d in total\n", prefix, subdircnt);
 
+		/* subdirs are linked by ->d_child */
 		list_for_each(subdirs_pos, &pdentry->d_subdirs) {
 			dentry_ptr = list_entry(subdirs_pos, struct dentry, d_u.d_child);
 			if (dentry_ptr != NULL && dentry_ptr->d_name.name != NULL)
-				pr_debug("                d_subdirs[%d]->d_name.name: %s\n",
-					 suddiridx, dentry_ptr->d_name.name);
+				pr_debug("%s    d_subdirs[%d]->d_name.name: %s\n",
+					 prefix, suddiridx, dentry_ptr->d_name.name);
 
 			suddiridx++;
 		}
@@ -94,8 +209,6 @@ static int __init mod_init(void)
 	char buff[KSYM_SYMBOL_LEN];
 	struct hlist_node *pos;
 	int sb_cnt = 0;
-
-	char prefixbuff[PREFIXBUFFLEN];
 
 	pr_debug("=== insmod module ===\n");
 
@@ -159,31 +272,34 @@ static int __init mod_init(void)
 				char uuid[33];
 				struct super_block *sb_ptr = hlist_entry(pos, struct super_block, s_instances);
 
+				pr_debug("        fs_supers[%d]:\n", sb_cnt);
+
 				/* s_dev: use command "blkid" to check printed info */
-				pr_debug("        fs_supers[%d]->s_dev: MAJOR %d, MINOR %d\n",
-					 sb_cnt, MAJOR(sb_ptr->s_dev), MINOR(sb_ptr->s_dev));
+				pr_debug("            s_dev: MAJOR %d, MINOR %d\n",
+					 MAJOR(sb_ptr->s_dev), MINOR(sb_ptr->s_dev));
 
 				/* s_magic */
-				pr_debug("        fs_supers[%d]->s_magic: %lu\n", sb_cnt, sb_ptr->s_magic);
+				pr_debug("            s_magic: %lu\n", sb_ptr->s_magic);
 
 				/* s_id, s_uuid */
 				memset(uuid, '\0', 33);
 				for (i = 0; i < 16; i++) {
 					sprintf(&uuid[i*2], "%02x", sb_ptr->s_uuid[i]);
 				}
-				pr_debug("        fs_supers[%d]->s_id: %s\n", sb_cnt, sb_ptr->s_id);
-				pr_debug("        fs_supers[%d]->s_uuid: %.*s\n", sb_cnt, 32, uuid);
+				pr_debug("            s_id: %s\n", sb_ptr->s_id);
+				pr_debug("            s_uuid: %.*s\n", 32, uuid);
 
 				/* s_blocksize_bits, s_blocksize */
-				pr_debug("        fs_supers[%d]->s_blocksize_bits: %u\n", sb_cnt, sb_ptr->s_blocksize_bits);
-				pr_debug("        fs_supers[%d]->s_blocksize: %lu\n", sb_cnt, sb_ptr->s_blocksize);
+				pr_debug("            s_blocksize_bits: %u\n", sb_ptr->s_blocksize_bits);
+				pr_debug("            s_blocksize: %lu\n", sb_ptr->s_blocksize);
 
 				/* s_root */
-				print_dentry(sb_ptr->s_root, "s_root");
+				pr_debug("            s_root:\n");
+				print_dentry(sb_ptr->s_root, "                ");
 
 				/* s_inodes */
 				if (list_empty(&sb_ptr->s_inodes)) {
-					pr_debug("        fs_supers[%d]->s_inodes is NULL\n", sb_cnt);
+					pr_debug("            s_inodes is NULL\n");
 				} else {
 					int inode_cnt = 0;
 					int inode_idx = 0;
@@ -193,7 +309,7 @@ static int __init mod_init(void)
 					/* count total inode */
 					list_for_each(inode_pos, &sb_ptr->s_inodes)
 						inode_cnt++;
-					pr_debug("        fs_supers[%d]->s_inodes has %d in total\n", sb_cnt, inode_cnt);
+					pr_debug("            s_inodes has %d in total\n", inode_cnt);
 
 					/* loop each inode */
 					list_for_each(inode_pos, &sb_ptr->s_inodes) {
