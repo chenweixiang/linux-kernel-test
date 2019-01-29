@@ -6,6 +6,7 @@
 #include <linux/kallsyms.h>
 #include <linux/string.h>
 #include <linux/list.h>
+#include <linux/dcache.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Weixiang");
@@ -100,10 +101,36 @@ static int __init mod_init(void)
 				for (i = 0; i < 16; i++) {
 					sprintf(&uuid[i*2], "%02x", sb_ptr->s_uuid[i]);
 				}
-
 				pr_debug("        fs_supers[%d]->s_id: %s\n", sb_cnt, sb_ptr->s_id);
 				pr_debug("        fs_supers[%d]->s_uuid: %.*s\n", sb_cnt, 32, uuid);
 
+				/* s_blocksize_bits, s_blocksize */
+				pr_debug("        fs_supers[%d]->s_blocksize_bits: %u\n", sb_cnt, sb_ptr->s_blocksize_bits);
+				pr_debug("        fs_supers[%d]->s_blocksize: %lu\n", sb_cnt, sb_ptr->s_blocksize);
+
+				/* s_root */
+				if (sb_ptr->s_root == NULL) {
+					pr_debug("        fs_supers[%d]->s_root is NULL\n", sb_cnt);
+				} else {
+					pr_debug("        fs_supers[%d]->s_root->d_iname: %s\n", sb_cnt, sb_ptr->s_root->d_iname);
+
+					if (sb_ptr->s_root->d_name.name != NULL)
+					pr_debug("            fs_supers[%d]->s_root->d_name.name: %s\n", sb_cnt, sb_ptr->s_root->d_name.name);
+				}
+
+				/* s_inodes */
+				if (list_empty(&sb_ptr->s_inodes)) {
+					pr_debug("        fs_supers[%d]->s_inodes is NULL\n", sb_cnt);
+				} else {
+					int inode_cnt = 0;
+					struct list_head *inode;
+					list_for_each(inode, &sb_ptr->s_inodes)
+						inode_cnt++;
+
+					pr_debug("        fs_supers[%d]->s_inodes has %d in total\n", sb_cnt, inode_cnt);
+				}
+
+				/* next loop */
 				sb_cnt++;
 			}
 		} else {
