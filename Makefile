@@ -1,4 +1,7 @@
-obj-m := hello.c
+#
+# Usage: make o=<source-file-name-without-extension>
+#
+obj-m := $(o).o
 
 # 'uname -r' print kernel release
 KDIR := /lib/modules/$(shell uname -r)/build
