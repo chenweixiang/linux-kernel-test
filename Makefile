@@ -27,5 +27,5 @@ all:
 	make -C $(KDIR) M=$(PWD) modules
 
 clean:
-	rm *.o *.ko *.mod.c Modules.symvers modules.order -f
+	make -C $(KDIR) M=$(PWD) clean
 
