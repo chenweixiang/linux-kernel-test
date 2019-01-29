@@ -11,6 +11,10 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Weixiang");
 MODULE_DESCRIPTION("Check Filesystem Module");
 
+static char *fsname = NULL;
+module_param(fsname, charp, 0444);
+MODULE_PARM_DESC(fsname, " show info of specified file system with name fsname");
+
 static int __init mod_init(void)
 {
 	char *sym_name = "file_systems";
@@ -29,6 +33,10 @@ static int __init mod_init(void)
 
 	ptr = (struct file_system_type *)(*(unsigned long *)sym_addr);
 	while (ptr != NULL) {
+		/* only print specific file system info */
+		if (fsname != NULL && strcmp(fsname, ptr->name) != 0)
+			goto next_loop;
+
 		pr_debug("*** (%d) fs: %s ***\n", fs_cnt, ptr->name);
 
 		/* ptr->fs_flags */
@@ -105,6 +113,8 @@ static int __init mod_init(void)
 		/* the elements *_key of struct file_system_type are not checked here! */
 
 		pr_debug("\n");
+
+next_loop:
 		/* next element in list file_systems */
 		ptr = ptr->next;
 		fs_cnt++;
