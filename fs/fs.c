@@ -130,8 +130,26 @@ static int __init mod_init(void)
 				} else {
 					pr_debug("        fs_supers[%d]->s_root->d_iname: %s\n", sb_cnt, sb_ptr->s_root->d_iname);
 
+					/* d_name */
 					if (sb_ptr->s_root->d_name.name != NULL)
 						pr_debug("            s_root->d_name.name: %s\n", sb_ptr->s_root->d_name.name);
+
+					/* d_iname */
+					pr_debug("            s_root->d_iname: %s\n", sb_ptr->s_root->d_iname);
+
+					/* d_flags */
+					pr_debug("            s_root->d_flags: %d\n", sb_ptr->s_root->d_flags);
+
+					/* d_seq */
+					pr_debug("            s_root->d_seq.sequence: %d\n", sb_ptr->s_root->d_seq.sequence);
+
+					/* d_hash */
+
+					/* d_count */
+					// pr_debug("            s_root->d_count: %d\n", sb_ptr->s_root->d_count);
+
+					/* d_time */
+					pr_debug("            s_root->d_time: %lu\n", sb_ptr->s_root->d_time);
 
 					/* d_subdirs */
 					if (list_empty(&sb_ptr->s_root->d_subdirs)) {
