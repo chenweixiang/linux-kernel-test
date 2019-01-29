@@ -8,6 +8,11 @@
 #include <linux/list.h>
 #include <linux/dcache.h>
 
+/*
+ * sudo insmod showparam.ko showparam=1
+ * sudo rmmod showparam
+ */
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Weixiang");
 MODULE_LICENSE("GPL");
@@ -42,7 +47,7 @@ EXPORT_SYMBOL(show_param);
 
 static int __init mod_init(void)
 {
-    pr_debug("=== Hello World! ===\n");
+    printk("=== insmod module ===\n");
 
     if (showparam)
 		show_param();
@@ -52,7 +57,7 @@ static int __init mod_init(void)
 
 static void __exit mod_exit(void)
 {
-	pr_debug("=== Bye World ===\n");
+	printk("=== rmmod module ===\n\n");
 }
 
 module_init(mod_init);
