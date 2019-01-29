@@ -23,6 +23,8 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Chen Weixiang");
 MODULE_DESCRIPTION("Check Filesystem Module");
 
+#define PREFIXBUFFLEN 50
+
 static char *fsname = NULL;
 module_param(fsname, charp, 0444);
 MODULE_PARM_DESC(fsname, " show info of specified file system with name fsname. Default: NULL");
@@ -30,6 +32,56 @@ MODULE_PARM_DESC(fsname, " show info of specified file system with name fsname. 
 static int inodecnt = 5;
 module_param(inodecnt, int, 0444);
 MODULE_PARM_DESC(inodecnt, " show first elements in list fs_supers[]->s_inodes. Default: 5");
+
+
+void print_dentry(struct dentry *pdentry, char *prefix)
+{
+	if (pdentry == NULL) {
+		pr_debug("            %s is NULL\n", prefix);
+		return;
+	}
+
+	pr_debug("            %s->d_iname: %s\n", prefix, pdentry->d_iname);
+
+	/* d_name */
+	if (pdentry->d_name.name != NULL)
+		pr_debug("            %s->d_name.name: %s\n", prefix, pdentry->d_name.name);
+
+	/* d_flags */
+	pr_debug("            %s->d_flags: %d\n", prefix, pdentry->d_flags);
+
+	/* d_seq */
+	pr_debug("            %s->d_seq.sequence: %d\n", prefix, pdentry->d_seq.sequence);
+
+	/* d_hash */
+
+	/* d_time */
+	pr_debug("            %s->d_time: %lu\n", prefix, pdentry->d_time);
+
+	/* d_subdirs */
+	if (list_empty(&pdentry->d_subdirs)) {
+		pr_debug("            %s->d_subdirs is NULL\n", prefix);
+	} else {
+		int subdircnt = 0;
+		int suddiridx = 0;
+		struct dentry *dentry_ptr;
+
+		struct list_head *subdirs_pos;
+		list_for_each(subdirs_pos, &pdentry->d_subdirs)
+			subdircnt++;
+		pr_debug("            %s->d_subdirs has %d in total\n", prefix, subdircnt);
+
+		list_for_each(subdirs_pos, &pdentry->d_subdirs) {
+			dentry_ptr = list_entry(subdirs_pos, struct dentry, d_u.d_child);
+			if (dentry_ptr != NULL && dentry_ptr->d_name.name != NULL)
+				pr_debug("                d_subdirs[%d]->d_name.name: %s\n",
+					 suddiridx, dentry_ptr->d_name.name);
+
+			suddiridx++;
+		}
+	}
+}
+
 
 static int __init mod_init(void)
 {
@@ -42,6 +94,8 @@ static int __init mod_init(void)
 	char buff[KSYM_SYMBOL_LEN];
 	struct hlist_node *pos;
 	int sb_cnt = 0;
+
+	char prefixbuff[PREFIXBUFFLEN];
 
 	pr_debug("=== insmod module ===\n");
 
@@ -125,55 +179,7 @@ static int __init mod_init(void)
 				pr_debug("        fs_supers[%d]->s_blocksize: %lu\n", sb_cnt, sb_ptr->s_blocksize);
 
 				/* s_root */
-				if (sb_ptr->s_root == NULL) {
-					pr_debug("        fs_supers[%d]->s_root is NULL\n", sb_cnt);
-				} else {
-					pr_debug("        fs_supers[%d]->s_root->d_iname: %s\n", sb_cnt, sb_ptr->s_root->d_iname);
-
-					/* d_name */
-					if (sb_ptr->s_root->d_name.name != NULL)
-						pr_debug("            s_root->d_name.name: %s\n", sb_ptr->s_root->d_name.name);
-
-					/* d_iname */
-					pr_debug("            s_root->d_iname: %s\n", sb_ptr->s_root->d_iname);
-
-					/* d_flags */
-					pr_debug("            s_root->d_flags: %d\n", sb_ptr->s_root->d_flags);
-
-					/* d_seq */
-					pr_debug("            s_root->d_seq.sequence: %d\n", sb_ptr->s_root->d_seq.sequence);
-
-					/* d_hash */
-
-					/* d_count */
-					// pr_debug("            s_root->d_count: %d\n", sb_ptr->s_root->d_count);
-
-					/* d_time */
-					pr_debug("            s_root->d_time: %lu\n", sb_ptr->s_root->d_time);
-
-					/* d_subdirs */
-					if (list_empty(&sb_ptr->s_root->d_subdirs)) {
-						pr_debug("            s_root->d_subdirs is NULL\n");
-					} else {
-						int subdircnt = 0;
-						int suddiridx = 0;
-						struct dentry *dentry_ptr;
-
-						struct list_head *subdirs_pos;
-						list_for_each(subdirs_pos, &sb_ptr->s_root->d_subdirs)
-							subdircnt++;
-						pr_debug("            s_root->d_subdirs has %d in total\n", subdircnt);
-
-						list_for_each(subdirs_pos, &sb_ptr->s_root->d_subdirs) {
-							dentry_ptr = list_entry(subdirs_pos, struct dentry, d_u.d_child);
-							if (dentry_ptr != NULL && dentry_ptr->d_name.name != NULL)
-								pr_debug("                d_subdirs[%d]->d_name.name: %s\n",
-									 suddiridx, dentry_ptr->d_name.name);
-
-							suddiridx++;
-						}
-					}
-				}
+				print_dentry(sb_ptr->s_root, "s_root");
 
 				/* s_inodes */
 				if (list_empty(&sb_ptr->s_inodes)) {
