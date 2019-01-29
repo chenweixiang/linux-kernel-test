@@ -14,7 +14,7 @@
  *   make o=fs
  *
  * Insert module and check print-out:
- *   sudo insmod fs.ko
+ *   sudo insmod fs.ko fsname=ext4
  *   sudo rmmod fs
  *   cat /var/log/syslog
  */
@@ -25,7 +25,11 @@ MODULE_DESCRIPTION("Check Filesystem Module");
 
 static char *fsname = NULL;
 module_param(fsname, charp, 0444);
-MODULE_PARM_DESC(fsname, " show info of specified file system with name fsname");
+MODULE_PARM_DESC(fsname, " show info of specified file system with name fsname. Default: NULL");
+
+static int inodecnt = 5;
+module_param(inodecnt, int, 0444);
+MODULE_PARM_DESC(inodecnt, " show first elements in list fs_supers[]->s_inodes. Default: 5");
 
 static int __init mod_init(void)
 {
@@ -102,7 +106,8 @@ static int __init mod_init(void)
 				struct super_block *sb_ptr = hlist_entry(pos, struct super_block, s_instances);
 
 				/* s_dev: use command "blkid" to check printed info */
-				pr_debug("        fs_supers[%d]->s_dev: MAJOR %d, MINOR %d\n", sb_cnt, MAJOR(sb_ptr->s_dev), MINOR(sb_ptr->s_dev));
+				pr_debug("        fs_supers[%d]->s_dev: MAJOR %d, MINOR %d\n",
+					 sb_cnt, MAJOR(sb_ptr->s_dev), MINOR(sb_ptr->s_dev));
 
 				/* s_magic */
 				pr_debug("        fs_supers[%d]->s_magic: %lu\n", sb_cnt, sb_ptr->s_magic);
@@ -126,7 +131,30 @@ static int __init mod_init(void)
 					pr_debug("        fs_supers[%d]->s_root->d_iname: %s\n", sb_cnt, sb_ptr->s_root->d_iname);
 
 					if (sb_ptr->s_root->d_name.name != NULL)
-					pr_debug("            fs_supers[%d]->s_root->d_name.name: %s\n", sb_cnt, sb_ptr->s_root->d_name.name);
+						pr_debug("            s_root->d_name.name: %s\n", sb_ptr->s_root->d_name.name);
+
+					/* d_subdirs */
+					if (list_empty(&sb_ptr->s_root->d_subdirs)) {
+						pr_debug("            s_root->d_subdirs is NULL\n");
+					} else {
+						int subdircnt = 0;
+						int suddiridx = 0;
+						struct dentry *dentry_ptr;
+
+						struct list_head *subdirs_pos;
+						list_for_each(subdirs_pos, &sb_ptr->s_root->d_subdirs)
+							subdircnt++;
+						pr_debug("            s_root->d_subdirs has %d in total\n", subdircnt);
+
+						list_for_each(subdirs_pos, &sb_ptr->s_root->d_subdirs) {
+							dentry_ptr = list_entry(subdirs_pos, struct dentry, d_u.d_child);
+							if (dentry_ptr != NULL && dentry_ptr->d_name.name != NULL)
+								pr_debug("                d_subdirs[%d]->d_name.name: %s\n",
+									 suddiridx, dentry_ptr->d_name.name);
+
+							suddiridx++;
+						}
+					}
 				}
 
 				/* s_inodes */
@@ -147,10 +175,11 @@ static int __init mod_init(void)
 					list_for_each(inode_pos, &sb_ptr->s_inodes) {
 						inode_ptr = list_entry(inode_pos, struct inode, i_sb_list);
 
-						/* print first 20 inodes only */
-						if (inode_idx < 20) {
+						/* print first inodecnt inodes only */
+						inodecnt = inode_cnt < inodecnt ? inode_cnt : inodecnt;
+						if (inode_idx < inodecnt) {
 							char *imode_str;
-							pr_debug("            fs_supers[%d]->s_inodes[%d]:", sb_cnt, inode_idx);
+							pr_debug("            s_inodes[%d]:", inode_idx);
 
 							/* i_mode */
 							if (S_ISLNK(inode_ptr->i_mode))
